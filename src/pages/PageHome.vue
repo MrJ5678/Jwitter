@@ -1,6 +1,6 @@
 <template>
   <q-page class="relative-position">
-    <q-scroll-area class="absolute fullscreen">
+    <q-scroll-area class="absolute full-height full-width">
       <div class="q-py-lg q-px-md row items-end q-col-gutter-md">
         <div class="col">
           <q-input
@@ -44,7 +44,7 @@
           <q-item
             class="jwitter q-py-md"
             v-for="jwitter in jwitters"
-            :key="jwitter.date"
+            :key="jwitter.id"
           >
             <q-item-section avatar top>
               <q-avatar>
@@ -78,7 +78,14 @@
                   size="sm"
                   icon="fas fa-retweet"
                 />
-                <q-btn flat round color="grey" size="sm" icon="far fa-heart" />
+                <q-btn
+                  @click="toggleLiked(jwitter)"
+                  flat
+                  round
+                  :color="jwitter.liked ? 'pink' : 'grey'"
+                  :icon="jwitter.liked ? 'fas fa-heart' : 'far fa-heart'"
+                  size="sm"
+                />
                 <q-btn
                   @click="deleteJwitter(jwitter)"
                   flat
@@ -98,6 +105,7 @@
 
 <script>
 import { formatDistance } from "date-fns";
+import db from "src/boot/firebase";
 
 export default {
   name: "PageHome",
@@ -105,21 +113,27 @@ export default {
     return {
       newJwitterContent: "",
       jwitters: [
-        {
-          content:
-            "革义革见王各间处值军，由每该际分状圆组没来，问而该管告需体告。领形需点资采按车认情放六造，百族术他每片技公枝。出本我有那几，已流习总段社，究F枝性。 速阶题间西情百少日界，往计进置不四切切非去。人质后入厂",
-          date: 1615218523445
-        },
-        {
-          content:
-            "领形需点资采按车认情放六造，百族术他每2片技公枝。出本我有那几，已流习总段社，究F枝性。 速阶题间西情百少日界，往计进置不四切切非去，边了9转步山角没持。人质后入厂",
-          date: 1615218561048
-        },
-        {
-          content:
-            "做五断系由一不被运马商，何业只院空刷拉劳民精。革义革见王各间处值军，由每该际分状圆组没来，问而该管告需体告。领形需点资采按车认情放六造，百族术他每2片技公枝。出本我有那几，已流习总段社，究F枝性。 速阶题间西情百少日界，往计进置不四切切非去，边了9转步山角没持。人质后入厂",
-          date: 1615218583087
-        }
+        // {
+        //   content:
+        //     "革义革见王各间处值军，由每该际分状圆组没来，问而该管告需体告。领形需点资采按车认情放六造，百族术他每片技公枝。出本我有那几，已流习总段社，究F枝性。 速阶题间西情百少日界，往计进置不四切切非去。人质后入厂",
+        //   date: 1615218523445,
+        //   liked: false,
+        //   id: "ID1"
+        // },
+        // {
+        //   content:
+        //     "领形需点资采按车认情放六造，百族术他每2片技公枝。出本我有那几，已流习总段社，究F枝性。 速阶题间西情百少日界，往计进置不四切切非去，边了9转步山角没持。人质后入厂",
+        //   date: 1615218561048,
+        //   liked: true,
+        //   id: "ID2"
+        // },
+        // {
+        //   content:
+        //     "做五断系由一不被运马商，何业只院空刷拉劳民精。革义革见王各间处值军，由每该际分状圆组没来，问而该管告需体告。领形需点资采按车认情放六造，百族术他每2片技公枝。出本我有那几，已流习总段社，究F枝性。 速阶题间西情百少日界，往计进置不四切切非去，边了9转步山角没持。人质后入厂",
+        //   date: 1615218583087,
+        //   liked: false,
+        //   id: "ID3"
+        // }
       ]
     };
   },
@@ -132,21 +146,78 @@ export default {
     addNewJwitter() {
       let newJwitter = {
         content: this.newJwitterContent,
-        date: Date.now()
+        date: Date.now(),
+        liked: false
       };
-      this.jwitters.unshift(newJwitter);
+      // this.jwitters.unshift(newJwitter);
+      db.collection("jweets")
+        .add(newJwitter)
+        .then(docRef => {
+          // console.log("Document written with ID: ", docRef.id);
+        })
+        .catch(error => {
+          // console.error("Error adding document: ", error);
+        });
       this.newJwitterContent = "";
     },
     deleteJwitter(jwitter) {
-      let dateToDelete = jwitter.date;
-      // let index = this.jwitters.findIndex(
-      //   jwitter => jwitter.date === dateToDelete
-      // );
-      // this.jwitters.splice(index, 1);
-      this.jwitters = this.jwitters.filter(
-        jwitter => jwitter.date !== dateToDelete
-      );
+      db.collection("jweets")
+        .doc(jwitter.id)
+        .delete()
+        .then(() => {
+          // console.log("Document successfully deleted!");
+        })
+        .catch(error => {
+          // console.error("Error removing document: ", error);
+        });
+    },
+    toggleLiked(jwitter) {
+      // console.log("toggle Like");
+      // console.log(jwitter);
+
+      db.collection("jweets")
+        .doc(jwitter.id)
+        .update({
+          liked: !jwitter.liked
+        })
+        .then(() => {
+          // console.log("Document successfully updated!");
+        })
+        .catch(error => {
+          // The document probably doesn't exist.
+          // console.error("Error updating document: ", error);
+        });
     }
+  },
+  mounted() {
+    db.collection("jweets")
+      .orderBy("date")
+      .onSnapshot(snapshot => {
+        snapshot.docChanges().forEach(change => {
+          let jweetChange = change.doc.data();
+          jweetChange.id = change.doc.id;
+
+          if (change.type === "added") {
+            // console.log("New jweet: ", jweetChange);
+            this.jwitters.unshift(jweetChange);
+          }
+          if (change.type === "modified") {
+            // console.log("Modified jweet: ", jweetChange);
+            this.jwitters = this.jwitters.map(jwitter => {
+              if (jwitter.id === jweetChange.id) {
+                jwitter.liked = !jwitter.liked;
+              }
+              return jwitter;
+            });
+          }
+          if (change.type === "removed") {
+            // console.log("Removed jweet: ", jweetChange);
+            this.jwitters = this.jwitters.filter(
+              jwitter => jwitter.id !== jweetChange.id
+            );
+          }
+        });
+      });
   }
 };
 </script>
